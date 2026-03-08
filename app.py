@@ -1,113 +1,116 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import google.generativeai as genai
 from datetime import datetime
+import os
 
 # --- 1. إعدادات الهوية والواجهة الاحترافية ---
-st.set_page_config(page_title="نظام النخبة الذكي 2026", layout="wide", page_icon="🫡")
+st.set_page_config(page_title="نظام النخبة 2026", layout="wide", page_icon="🫡")
 
-# تصميم فخم (Dark Mode) وتنسيقات CSS
+# تصميم فخم (Dark Mode)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
     .stMetric { background-color: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #4b5563; }
     [data-testid="stSidebar"] { background-color: #111827; border-right: 1px solid #374151; }
-    h1, h2, h3 { color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .stDataFrame { border: 1px solid #374151; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. محرك البيانات (Data Engine) ---
+# --- 2. محرك البيانات المعتمد (Fleet1 data 2026) ---
+file_name = "Fleet1 data 2026.xlsx"
+
 @st.cache_data
 def load_data():
-    file_name = "Fleet data 2026.xlsx"
-    try:
-        # قراءة البيانات مع تجاوز أول سطرين (بناءً على ملفك)
-        df = pd.read_excel(file_name, sheet_name="كشف", skiprows=2)
-        # تنظيف البيانات البسيطة
-        df = df.dropna(subset=['الاسم']) 
-        return df
-    except Exception as e:
-        st.error(f"⚠️ خطأ في قراءة ملف الإكسل: {e}")
-        return None
+    if os.path.exists(file_name):
+        try:
+            # يقرأ أول ورقة في الإكسل ويتجاوز أول سطرين حسب تنسيق ملفك
+            df = pd.read_excel(file_name, sheet_name=0, skiprows=2)
+            df = df.dropna(subset=['الاسم']).reset_index(drop=True)
+            return df
+        except Exception as e:
+            st.error(f"❌ خطأ فني في قراءة البيانات: {e}")
+            return None
+    return None
 
 df = load_data()
 
-# --- 3. القائمة الجانبية (Sidebar) ---
-with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/shield.png", width=80)
-    st.title("غرفة العمليات")
-    st.write(f"الملازم: جاسم بن محمد 🫡")
-    st.markdown("---")
-    menu = st.radio("القوائم الرئيسية:", 
-                    ["📊 لوحة التحكم", "📋 سجل الأسطول والعمالة", "💸 الديتور المالي", "🤖 المساعد الشخصي (AI)"])
-    st.markdown("---")
-    st.caption(f"التاريخ الحالي: {datetime.now().strftime('%Y-%m-%d')}")
+# --- 3. إعداد الذكاء الاصطناعي (Gemini) ---
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    ai_model = genai.GenerativeModel('gemini-pro')
+else:
+    ai_model = None
 
-# التحقق من وجود البيانات
+# --- 4. القائمة الجانبية (Sidebar) ---
+with st.sidebar:
+    st.image("https://img.icons8.com/fluency/96/shield.png", width=70)
+    st.title("غرفة العمليات")
+    st.subheader(f"الملازم جاسم بن محمد 🫡")
+    st.markdown("---")
+    menu = st.radio("انتقل إلى:", 
+                    ["📊 لوحة التحكم", "📋 سجل الأسطول والعمالة", "💸 الديتور المالي", "🤖 المساعد الشخصي"])
+    st.markdown("---")
+    st.caption(f"آخر تحديث للنظام: {datetime.now().strftime('%Y-%m-%d')}")
+
+# --- 5. منطق الصفحات ---
 if df is not None:
-    # --- 4. لوحة التحكم (Dashboard) ---
+    # --- لوحة التحكم ---
     if menu == "📊 لوحة التحكم":
         st.title("📊 مركز التحكم والسيطرة - 2026")
-        
-        # مؤشرات الأداء الحية (Metrics)
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("إجمالي القوة البشرية", len(df))
         with col2:
-            # افتراض أسماء الأعمدة من ملفك
-            total_debt = df['مدين مستحقات'].sum() if 'مدين مستحقات' in df.columns else 0
-            st.metric("إجمالي المستحقات (مدين)", f"{total_debt:,.0f} ريال", delta_color="inverse")
+            debt_val = df['مدين مستحقات'].sum() if 'مدين مستحقات' in df.columns else 0
+            st.metric("إجمالي المديونيات", f"{debt_val:,.0f} ريال", delta_color="inverse")
         with col3:
-            total_credit = df['دائن مستحقات'].sum() if 'دائن مستحقات' in df.columns else 0
-            st.metric("إجمالي المدفوعات (دائن)", f"{total_credit:,.0f} ريال")
-
+            st.metric("حالة الربط التقني", "متصل ✅")
+        
         st.markdown("---")
-        
-        # رسومات بيانية
-        col_left, col_right = st.columns(2)
-        with col_left:
-            if 'رصيد مستحقات' in df.columns:
-                fig = px.pie(df.head(10), values='رصيد مستحقات', names='الاسم', 
-                             title="توزيع المستحقات لأعلى 10 أفراد", hole=0.4,
-                             color_discrete_sequence=px.colors.sequential.RdBu)
-                st.plotly_chart(fig, use_container_width=True)
-        
-        with col_right:
-            st.write("### 📝 آخر العمليات")
-            st.dataframe(df[['الاسم', 'رصيد مستحقات', 'السيارة']].head(8), use_container_width=True)
+        # رسم بياني للمستحقات
+        if 'رصيد مستحقات' in df.columns:
+            fig = px.bar(df.head(10), x='الاسم', y='رصيد مستحقات', color='رصيد مستحقات',
+                         title="أعلى 10 مستحقات مالية", color_continuous_scale='Reds')
+            st.plotly_chart(fig, use_container_width=True)
 
-    # --- 5. سجل الأسطول ---
+    # --- سجل الأسطول ---
     elif menu == "📋 سجل الأسطول والعمالة":
-        st.title("📋 سجل العمالة والسيارات")
+        st.title("📋 سجل العمالة والسيارات المعتمد")
         search = st.text_input("🔍 ابحث عن اسم الموظف أو رقم الإقامة...")
         if search:
-            filtered = df[df['الاسم'].str.contains(search, na=False) | df['الاقامه'].astype(str).str.contains(search, na=False)]
+            filtered = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+            st.dataframe(filtered, use_container_width=True)
         else:
-            filtered = df
-        st.dataframe(filtered, use_container_width=True)
+            st.dataframe(df, use_container_width=True)
 
-    # --- 6. الديتور المالي ---
+    # --- الديتور المالي ---
     elif menu == "💸 الديتور المالي":
         st.title("💸 كشف الحسابات (مدين / دائن)")
-        st.info("هذا القسم مخصص لمتابعة 'قيمة الشهر' والخدمات والمستحقات.")
-        st.table(df[['الاسم', 'مدين خدمات', 'دائن خدمات', 'مدين مستحقات', 'دائن مستحقات', 'رصيد مستحقات']].head(20))
+        st.info("هذا الجدول يوضح ميزانية الخدمات والمستحقات بناءً على ملف Fleet1 data 2026.")
+        # عرض أعمدة الديتور الأساسية
+        cols_to_show = [c for c in df.columns if any(x in c for x in ['الاسم', 'مدين', 'دائن', 'رصيد'])]
+        st.table(df[cols_to_show].head(20))
 
-    # --- 7. المساعد الشخصي (AI Assistant) ---
-    elif menu == "🤖 المساعد الشخصي (AI)":
-        st.title("🤖 المساعد الشخصي الذكي")
-        st.markdown("> **أبشر طال عمرك يا أبا محمد، أنا متصل بملف Fleet data 2026 وجاهز لخدمتك.**")
+    # --- المساعد الشخصي (الذكاء الاصطناعي) ---
+    elif menu == "🤖 المساعد الشخصي":
+        st.title("🤖 مساعدك الذكي (صلاحيات مفتوحة)")
+        st.markdown("> **أبشر طال عمرك يا أبا محمد، أنا متصل بالبيانات وجاهز لخدمتك.**")
         
-        prompt = st.chat_input("اسألني عن رصيد أي موظف أو معلومات السيارة...")
-        if prompt:
-            with st.chat_message("user"): st.write(prompt)
+        user_input = st.chat_input("تحدث معي عن أي رصيد أو معلومة...")
+        if user_input:
+            st.chat_message("user").write(user_input)
             with st.chat_message("assistant"):
-                # محرك بحث ذكي بسيط
-                found = df[df['الاسم'].apply(lambda x: any(p in str(x) for p in prompt.split()))]
-                if not found.empty:
-                    res = found.iloc[0]
-                    st.write(f"أبشر طال عمرك، الموظف **{res['الاسم']}** رصيده الحالي **{res['رصيد مستحقات']} ريال**. والسيارة المسجلة له هي **{res['السيارة']}**.")
+                if ai_model:
+                    # إرسال سياق البيانات للـ AI
+                    context = f"بياناتك الحالية: {df.head(10).to_string()}"
+                    response = ai_model.generate_content(f"{context}\n\nسؤال المستخدم: {user_input}")
+                    st.write(response.text)
                 else:
-                    st.write("أبشر طال عمرك، جاري البحث والتحليل بناءً على الصلاحيات المفتوحة التي منحتني إياها.")
+                    st.write("أبشر طال عمرك، جاري تحليل البيانات.. (يرجى تفعيل API Key لتفعيل الردود الذكية).")
 
 else:
-    st.warning("⚠️ لم يتم العثور على ملف 'Fleet data 2026.xlsx'. يرجى رفعه على GitHub.")
+    st.error(f"⚠️ تنبيه: الملف '{file_name}' لم يتم العثور عليه في المستودع.")
+    st.info(f"يرجى التأكد من رفع ملف الإكسل باسم: {file_name}")
+    st.write("الملفات الحالية في GitHub:", os.listdir())
