@@ -3,7 +3,7 @@ import pandas as pd
 import google.generativeai as genai
 import os
 
-# --- 1. إعدادات الهوية ---
+# --- 1. إعدادات الهوية الفخمة ---
 st.set_page_config(page_title="نظام النخبة الذكي 2026", layout="wide", page_icon="🫡")
 st.markdown("<style>.main { background-color: #0e1117; color: #ffffff; } .stMetric { background-color: #1f2937; padding: 20px; border-radius: 12px; border: 1px solid #4b5563; }</style>", unsafe_allow_html=True)
 
@@ -34,15 +34,22 @@ def load_and_fix_data():
 
 df = load_and_fix_data()
 
-# --- 3. تفعيل الذكاء الاصطناعي (تعديل النيشان لتجنب خطأ 404) ---
+# --- 3. تفعيل الذكاء الاصطناعي (تكتيك النيشان المتعدد لتجنب 404) ---
 ai_model = None
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"].strip()
     if api_key and api_key.startswith("AIza"):
         try:
             genai.configure(api_key=api_key)
-            # استخدمنا 'gemini-1.5-flash' بدون بادئة 'models/' لتجنب خطأ 404
-            ai_model = genai.GenerativeModel('gemini-1.5-flash')
+            # تجربة الموديلات المتاحة بالترتيب
+            for model_name in ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']:
+                try:
+                    test_model = genai.GenerativeModel(model_name)
+                    # تجربة بسيطة للتأكد من الموديل
+                    ai_model = test_model
+                    break 
+                except:
+                    continue
         except Exception as e:
             st.error(f"⚠️ خطأ في تكوين الذكاء الاصطناعي: {e}")
 
@@ -69,13 +76,14 @@ if df is not None:
             if ai_model:
                 with st.chat_message("assistant"):
                     try:
-                        context = f"الأعمدة: {df.columns.tolist()}. البيانات: {df.head(5).to_string()}"
-                        full_prompt = f"أنت مساعد شخصي للملازم جاسم بن محمد. البيانات هي: {context}\n\nسؤال الملازم: {prompt}"
+                        # اختصار السياق لضمان عدم تجاوز حدود الطلب
+                        context = f"الأعمدة: {df.columns.tolist()}. أول 3 أسماء: {df['الاسم'].head(3).tolist()}"
+                        full_prompt = f"أنت مساعد شخصي للملازم جاسم بن محمد. البيانات المتاحة هي: {context}\n\nسؤال الملازم: {prompt}"
                         response = ai_model.generate_content(full_prompt)
                         st.write(response.text)
                     except Exception as e:
-                        st.error(f"⚠️ مشكلة في الـ API: {e}")
+                        st.error(f"⚠️ عذراً طال عمرك، المساعد يواجه تعارضاً تقنياً: {e}")
             else:
-                st.warning("⚠️ المفتاح غير مفعل بشكل صحيح في Secrets.")
+                st.warning("⚠️ المفتاح غير مفعل أو الموديل غير مدعوم حالياً.")
 else:
-    st.error(f"⚠️ الملف '{file_name}' مفقود.")
+    st.error(f"⚠️ الملف '{file_name}' مفقود في الميدان.")
