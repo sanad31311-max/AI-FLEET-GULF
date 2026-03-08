@@ -9,7 +9,7 @@ st.markdown("<style>.main { background-color: #0e1117; color: #ffffff; } .stMetr
 
 st.title("🫡 مركز العمليات الذكي - الملازم جاسم")
 
-# --- 2. محرك البيانات الذكي ---
+# --- 2. محرك البيانات الذكي (Fleet1 2026) ---
 file_name = "Fleet1 data 2026.xlsx"
 
 @st.cache_data
@@ -34,34 +34,36 @@ def load_and_fix_data():
 
 df = load_and_fix_data()
 
-# --- 3. تفعيل الذكاء الاصطناعي (تكتيك النيشان المتعدد لتجنب 404) ---
+# --- 3. محرك الاستطلاع الذكي (البحث عن الموديل الشغال) ---
 ai_model = None
+selected_model_name = ""
+
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"].strip()
     if api_key and api_key.startswith("AIza"):
         try:
             genai.configure(api_key=api_key)
-            # تجربة الموديلات المتاحة بالترتيب
-            for model_name in ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']:
-                try:
-                    test_model = genai.GenerativeModel(model_name)
-                    # تجربة بسيطة للتأكد من الموديل
-                    ai_model = test_model
-                    break 
-                except:
-                    continue
+            # استطلاع الموديلات المتاحة في حسابك فعلياً
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            
+            if available_models:
+                # اختيار أحدث موديل متاح (غالباً 1.5 flash أو pro)
+                selected_model_name = available_models[0]
+                ai_model = genai.GenerativeModel(selected_model_name)
+            else:
+                st.error("⚠️ لم يتم العثور على أي موديلات مفعلة في حسابك.")
         except Exception as e:
-            st.error(f"⚠️ خطأ في تكوين الذكاء الاصطناعي: {e}")
+            st.error(f"⚠️ فشل الاستطلاع التقني للموديلات: {e}")
 
 # --- 4. واجهة العرض والتحكم ---
 if df is not None:
-    st.success(f"✅ تم سحب البيانات وتنظيفها من {file_name}")
+    st.success(f"✅ تم الاتصال بالبيانات بنجاح")
     
     tab1, tab2 = st.tabs(["📊 لوحة التحكم", "🤖 المساعد الذكي"])
     
     with tab1:
-        st.write("### 📋 سجل الحسابات والأسطول")
-        search = st.text_input("🔍 ابحث عن اسم، سيارة، أو مبلغ...")
+        st.write("### 📋 سجل الأسطول المحدث")
+        search = st.text_input("🔍 ابحث عن أي معلومة...")
         if search:
             res = df[df.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
             st.dataframe(res, use_container_width=True)
@@ -70,20 +72,21 @@ if df is not None:
 
     with tab2:
         st.write("### 🤖 مساعدك الشخصي")
-        prompt = st.chat_input("تحدث معي.. اسأل عن الرواتب أو تطوير النظام...")
-        if prompt:
-            st.chat_message("user").write(prompt)
-            if ai_model:
+        if ai_model:
+            st.caption(f"تم ربط المحرك بنجاح: {selected_model_name}")
+            prompt = st.chat_input("تحدث معي يا أبا محمد...")
+            if prompt:
+                st.chat_message("user").write(prompt)
                 with st.chat_message("assistant"):
                     try:
-                        # اختصار السياق لضمان عدم تجاوز حدود الطلب
-                        context = f"الأعمدة: {df.columns.tolist()}. أول 3 أسماء: {df['الاسم'].head(3).tolist()}"
-                        full_prompt = f"أنت مساعد شخصي للملازم جاسم بن محمد. البيانات المتاحة هي: {context}\n\nسؤال الملازم: {prompt}"
+                        context = f"البيانات: {df.head(5).to_string()}"
+                        full_prompt = f"أنت مساعد شخصي للملازم جاسم بن محمد. البيانات هي: {context}\n\nسؤال الملازم: {prompt}"
                         response = ai_model.generate_content(full_prompt)
                         st.write(response.text)
                     except Exception as e:
-                        st.error(f"⚠️ عذراً طال عمرك، المساعد يواجه تعارضاً تقنياً: {e}")
-            else:
-                st.warning("⚠️ المفتاح غير مفعل أو الموديل غير مدعوم حالياً.")
+                        st.error(f"⚠️ تعارض في الاستجابة: {e}")
+        else:
+            st.warning("⚠️ المساعد بانتظار تفعيل 'مفتاح الـ API' الصحيح.")
+
 else:
-    st.error(f"⚠️ الملف '{file_name}' مفقود في الميدان.")
+    st.error("⚠️ ملف 'Fleet1 data 2026.xlsx' مفقود.")
